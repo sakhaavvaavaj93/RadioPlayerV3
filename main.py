@@ -54,7 +54,6 @@ async def main():
             pass
         except Exception as e:
             print(e)
-            pass
 
 def stop_and_restart():
     bot.stop()
@@ -176,7 +175,6 @@ async def restart(_, message: Message):
                 process.kill()
             except Exception as e:
                 print(e)
-                pass
             FFMPEG_PROCESSES[CHAT_ID] = ""
         Thread(
             target=stop_and_restart()
@@ -184,7 +182,7 @@ async def restart(_, message: Message):
     try:
         await k.edit("✅ **Restarted Successfully! \nJoin @AsmSafone For Update!**")
         await k.reply_to_message.delete()
-    except:
+    except Exception:
         pass
 
 idle()

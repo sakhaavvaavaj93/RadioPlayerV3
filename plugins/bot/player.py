@@ -45,7 +45,7 @@ async def is_admin(_, client, message: Message):
     admins = await mp.get_admins(CHAT_ID)
     if message.from_user is None and message.sender_chat:
         return True
-    if message.from_user.id in admins:
+    if message.from_user and message.from_user.id in admins:
         return True
     else:
         return False
@@ -62,7 +62,7 @@ async def yplay(_, message: Message):
             await mp.delete(m)
             await mp.delete(message)
             return
-    type=""
+    media_type=""
     yturl=""
     ysearch=""
     if message.audio:
@@ -97,14 +97,9 @@ async def yplay(_, message: Message):
             return
     user=f"[{message.from_user.first_name}](tg://user?id={message.from_user.id})"
     group_call = mp.group_call
-    if type=="audio":
+    if media_type=="audio":
         if round(m_audio.audio.duration / 60) > DURATION_LIMIT:
             d=await message.reply_text(f"❌ __Audios Longer Than {DURATION_LIMIT} Minute(s) Aren't Allowed, The Provided Audio Is {round(m_audio.audio.duration/60)} Minute(s)!__")
-            await mp.delete(d)
-            await mp.delete(message)
-            return
-        if playlist and playlist[-1][2] == m_audio.audio.file_id:
-            d=await message.reply_text(f"➕ **Already Added To Playlist!**")
             await mp.delete(d)
             await mp.delete(message)
             return
@@ -126,7 +121,6 @@ async def yplay(_, message: Message):
                         process.kill()
                     except Exception as e:
                         print(e)
-                        pass
                     FFMPEG_PROCESSES[CHAT_ID] = ""
             if not group_call.is_connected:
                 await mp.start_call()
@@ -158,11 +152,11 @@ async def yplay(_, message: Message):
             await mp.download_audio(track)
 
 
-    if type=="youtube" or type=="query":
-        if type=="youtube":
+    if media_type=="youtube" or media_type=="query":
+        if media_type=="youtube":
             msg = await message.reply_text("🔍")
             url=yturl
-        elif type=="query":
+        elif media_type=="query":
             try:
                 msg = await message.reply_text("🔍")
                 ytquery=ysearch
@@ -222,7 +216,6 @@ async def yplay(_, message: Message):
                         process.kill()
                     except Exception as e:
                         print(e)
-                        pass
                     FFMPEG_PROCESSES[CHAT_ID] = ""
             if not group_call.is_connected:
                 await mp.start_call()
@@ -573,5 +566,5 @@ async def not_chat(_, m: Message):
                 InlineKeyboardButton("🤖 MAKE YOUR OWN BOT 🤖", url="https://heroku.com/deploy?template=https://github.com/AsmSafone/RadioPlayerV3"),
             ]
          ]
-    k=await m.reply_photo(photo="https://telegra.ph/file/4e839766d45935998e9c6.jpg", caption="**Sorry, You Can't Use This Bot In This Group! 🤷‍♂️ But You Can Make Your Own Bot Like This From The [Source Code](https://github.com/AsmSafone/RadioPlayerV3) Below 😉!**", reply_markup=InlineKeyboardMarkup(buttons))
+    await m.reply_photo(photo="https://telegra.ph/file/4e839766d45935998e9c6.jpg", caption="**Sorry, You Can't Use This Bot In This Group! 🤷‍♂️ But You Can Make Your Own Bot Like This From The [Source Code](https://github.com/AsmSafone/RadioPlayerV3) Below 😉!**", reply_markup=InlineKeyboardMarkup(buttons))
     await mp.delete(m)
