@@ -1,7 +1,7 @@
 # Debian 12 (stable) slim - use specific tag for reproducibility
 ### Multi-stage build: build dependencies in a builder image and copy a virtualenv to a minimal runtime image
 
-FROM debian:bookworm-slim AS builder
+FROM python:3.14-slim-trixie AS builder
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1
 
