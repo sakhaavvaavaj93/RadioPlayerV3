@@ -8,3 +8,5 @@ unknown_errors.txt
 .env
 test.py
 .vscode/
+# Snyk Security Extension - AI Rules (auto-generated)
+.github/instructions/snyk_rules.instructions.md

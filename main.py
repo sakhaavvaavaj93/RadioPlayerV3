@@ -26,6 +26,7 @@ from signal import SIGINT
 from pyrogram import Client, filters, idle
 from config import Config
 from utils import mp, USERNAME, FFMPEG_PROCESSES
+from tracing import init_tracing
 from pyrogram.raw.functions.bots import SetBotCommands
 from pyrogram.raw.types import BotCommand, BotCommandScopeDefault
 from user import USER
@@ -43,6 +44,12 @@ bot = Client(
     bot_token=Config.BOT_TOKEN,
     plugins=dict(root="plugins.bot")
 )
+# initialize tracing early in startup
+try:
+    init_tracing()
+except Exception:
+    # non-fatal if tracing cannot be initialized in the current environment
+    pass
 if not os.path.isdir("./downloads"):
     os.makedirs("./downloads")
 async def main():
