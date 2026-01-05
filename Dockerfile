@@ -7,7 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # Install system packages required for building/installing Python packages and tools we need at build time
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential curl ffmpeg git python3-venv && \
+    build-essential curl ffmpeg git python3-venv python3-pip && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
@@ -18,13 +18,16 @@ COPY start.sh /build/start.sh
 COPY main.py config.py user.py utils.py tracing.py /build/
 COPY plugins /build/plugins
 
-# Create virtualenv and install dependencies
-RUN python3 -m venv /opt/venv && \
-    /opt/venv/bin/pip install --upgrade pip && \
-    /opt/venv/bin/pip install --no-cache-dir -r /build/requirements.txt
+# Build wheels for dependencies to install in the final runtime image
+# Building wheels here avoids compiling in the runtime image and prevents
+# copying a venv created on a different base (which can break due to
+# differing interpreter paths). Wheels are portable across compatible
+# Linux Python runtimes.
+RUN python3 -m pip install --upgrade pip wheel setuptools && \
+    python3 -m pip wheel --no-deps --wheel-dir /build/wheels -r /build/requirements.txt
 
 # Final runtime image (use official Python slim image)
-FROM python:3.14-slim
+FROM python:3.14-slim-trixie
 ENV DEBIAN_FRONTEND=noninteractive \
     PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1
@@ -36,9 +39,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /RadioPlayerV3
 
-# Copy the virtualenv from the builder stage and application files
-COPY --from=builder /opt/venv /opt/venv
+
+# Copy application files and built wheels from the builder stage
 COPY --from=builder /build /RadioPlayerV3
+
+# Create virtualenv in the runtime image and install dependencies from wheels
+RUN python3 -m venv /opt/venv && \
+    /opt/venv/bin/pip install --upgrade pip && \
+    if [ -d /RadioPlayerV3/wheels ]; then \
+    /opt/venv/bin/pip install --no-index --find-links=/RadioPlayerV3/wheels -r /RadioPlayerV3/requirements.txt; \
+    else \
+    /opt/venv/bin/pip install --no-cache-dir -r /RadioPlayerV3/requirements.txt; \
+    fi
 
 # Ensure startup script is present and executable
 COPY --from=builder /build/start.sh /start.sh
