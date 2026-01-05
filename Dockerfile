@@ -23,8 +23,9 @@ COPY plugins /build/plugins
 # copying a venv created on a different base (which can break due to
 # differing interpreter paths). Wheels are portable across compatible
 # Linux Python runtimes.
-RUN python3 -m pip install --upgrade pip wheel setuptools && \
-    python3 -m pip wheel --no-deps --wheel-dir /build/wheels -r /build/requirements.txt
+RUN python3 -m venv /opt/pyenv && \
+    /opt/pyenv/bin/pip install --upgrade pip wheel setuptools && \
+    /opt/pyenv/bin/pip wheel --no-deps --wheel-dir /build/wheels -r /build/requirements.txt
 
 # Final runtime image (use official Python slim image)
 FROM python:3.14-slim-trixie
