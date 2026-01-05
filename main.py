@@ -23,6 +23,13 @@ import subprocess
 from time import sleep
 from threading import Thread
 from signal import SIGINT
+
+# Fix for Python 3.14+ asyncio event loop issue with pyrogram sync wrapper
+try:
+    asyncio.get_event_loop()
+except RuntimeError:
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
 from pyrogram import Client, filters, idle
 from config import Config
 from utils import mp, USERNAME, FFMPEG_PROCESSES
@@ -42,7 +49,7 @@ bot = Client(
     Config.API_ID,
     Config.API_HASH,
     bot_token=Config.BOT_TOKEN,
-    plugins=dict(root="plugins.bot")
+    plugins={"root": "plugins.bot"}
 )
 # initialize tracing early in startup
 try:

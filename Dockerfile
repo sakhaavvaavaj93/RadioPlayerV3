@@ -7,9 +7,23 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # Install system packages required for building/installing Python packages and tools we need at build time
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential curl ffmpeg git cmake pkg-config python3-venv python3-pip \
-    libopus-dev libogg-dev libsndfile1-dev libavcodec-dev libavformat-dev libswresample-dev \
-    libssl-dev libffi-dev python3-dev && \
+    build-essential \
+    cmake \
+    curl \
+    ffmpeg \
+    git \
+    libavcodec-dev \
+    libavformat-dev \
+    libffi-dev \
+    libogg-dev \
+    libopus-dev \
+    libsndfile1-dev \
+    libssl-dev \
+    libswresample-dev \
+    pkg-config \
+    python3-dev \
+    python3-pip \
+    python3-venv && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
@@ -41,7 +55,13 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # Install runtime system packages only (ffmpeg and git required at runtime)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ffmpeg procps git libopus0 libogg0 libsndfile1 && \
+    curl \
+    ffmpeg \
+    git \
+    libogg0 \
+    libopus0 \
+    libsndfile1 \
+    procps && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /RadioPlayerV3
@@ -57,10 +77,11 @@ COPY --from=builder /build /RadioPlayerV3
 
 # Ensure startup script is present and executable
 COPY --from=builder /build/start.sh /start.sh
-RUN sed -i 's/\r$//' /start.sh && chmod +x /start.sh
 
 # Create a non-root user and give ownership of app files to that user
-RUN mkdir -p /opt/venv && \
+RUN sed -i 's/\r$//' /start.sh && \
+    chmod +x /start.sh && \
+    mkdir -p /opt/venv && \
     useradd --create-home --shell /usr/sbin/nologin appuser --uid 1000 && \
     chown -R appuser:appuser /RadioPlayerV3 /opt/venv /start.sh
 
