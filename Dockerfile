@@ -33,9 +33,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1
 
-# Install runtime system packages only (ffmpeg is required at runtime)
+# Install runtime system packages only (ffmpeg and git required at runtime)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ffmpeg procps && \
+    curl ffmpeg procps git && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /RadioPlayerV3
