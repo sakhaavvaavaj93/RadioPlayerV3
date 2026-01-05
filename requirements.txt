@@ -9,7 +9,10 @@ python-dotenv
 youtube_search
 youtube_search_python
 pyrogram==2.0.106
-pytgcalls==2.1.0
+pytgcalls>=3.0.0
+# tgcalls native extension: prefer a matching 3.x/dev release that is available on PyPI
+# pin explicitly if resolution fails
+tgcalls==3.0.0.dev6
 git+https://github.com/asmsafone/downloader
 opentelemetry-api>=1.14.0
 opentelemetry-sdk>=1.14.0
