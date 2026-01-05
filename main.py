@@ -67,7 +67,7 @@ async def main():
         except UserAlreadyParticipant:
             pass
         except Exception as e:
-            print(e)
+            print(f"Failed to join AsmSafone: {e}")
 
 def stop_and_restart():
     bot.stop()

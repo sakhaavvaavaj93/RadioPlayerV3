@@ -35,7 +35,7 @@ from config import Config
 from asyncio import sleep
 from pyrogram import Client
 from signal import SIGINT
-from random import randint
+from secrets import randbelow
 from pytgcalls import GroupCallFactory
 from pyrogram.errors import FloodWait
 from pyrogram.utils import MAX_CHANNEL_ID
@@ -127,8 +127,6 @@ class MusicPlayer(object):
         await self.download_audio(playlist[1])
 
     async def send_text(self, text):
-        group_call = self.group_call
-        client = group_call.client
         chat_id = LOG_GROUP
         message = await bot.send_message(
             chat_id,
@@ -141,8 +139,7 @@ class MusicPlayer(object):
 
     async def download_audio(self, song):
         group_call = self.group_call
-        client = group_call.client
-        raw_file = os.path.join(client.workdir, DEFAULT_DOWNLOAD_DIR,
+        raw_file = os.path.join(group_call.client.workdir, DEFAULT_DOWNLOAD_DIR,
                                 f"{song[1]}.raw")
         #if os.path.exists(raw_file):
             #os.remove(raw_file)
@@ -189,16 +186,15 @@ class MusicPlayer(object):
                 process.kill()
             except Exception as e:
                 print(e)
-                pass
             FFMPEG_PROCESSES[CHAT_ID] = ""
         station_stream_url = STREAM_URL
         try:
             RADIO.remove(0)
-        except:
+        except KeyError:
             pass
         try:
             RADIO.add(1)
-        except:
+        except KeyError:
             pass
         if os.path.exists(f'radio-{CHAT_ID}.raw'):
             os.remove(f'radio-{CHAT_ID}.raw')
@@ -207,14 +203,13 @@ class MusicPlayer(object):
         group_call.input_filename = f'radio-{CHAT_ID}.raw'
         if not group_call.is_connected:
             await self.start_call()
-        ffmpeg_log = open("ffmpeg.log", "w+")
         command=["ffmpeg", "-y", "-i", station_stream_url, "-f", "s16le", "-ac", "2",
         "-ar", "48000", "-acodec", "pcm_s16le", group_call.input_filename]
 
 
         process = await asyncio.create_subprocess_exec(
             *command,
-            stdout=ffmpeg_log,
+            stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
             )
 
@@ -227,11 +222,9 @@ class MusicPlayer(object):
             if group_call.is_connected:
                 print("Succesfully Joined VC !")
                 break
-            else:
-                print("Connecting, Please Wait ...")
-                await self.start_call()
-                await sleep(10)
-                continue
+            print("Connecting, Please Wait ...")
+            await self.start_call()
+            await sleep(10)
 
 
     async def stop_radio(self):
@@ -241,11 +234,11 @@ class MusicPlayer(object):
             group_call.input_filename = ''
             try:
                 RADIO.remove(1)
-            except:
+            except KeyError:
                 pass
             try:
                 RADIO.add(0)
-            except:
+            except KeyError:
                 pass
         process = FFMPEG_PROCESSES.get(CHAT_ID)
         if process:
@@ -255,7 +248,6 @@ class MusicPlayer(object):
                 process.kill()
             except Exception as e:
                 print(e)
-                pass
             FFMPEG_PROCESSES[CHAT_ID] = ""
 
 
@@ -271,16 +263,14 @@ class MusicPlayer(object):
             try:
                 await USER.send(CreateGroupCall(
                     peer=(await USER.resolve_peer(CHAT_ID)),
-                    random_id=randint(10000, 999999999)
+                    random_id=10000 + randbelow(999989999)
                     )
                     )
                 await group_call.start(CHAT_ID)
             except Exception as e:
                 print(e)
-                pass
         except Exception as e:
             print(e)
-            pass
 
 
     async def edit_title(self):
@@ -295,7 +285,6 @@ class MusicPlayer(object):
             await self.group_call.client.send(edit)
         except Exception as e:
             print("Error Occured On Changing VC Title:", e)
-            pass
 
 
     async def delete(self, message):
@@ -303,7 +292,7 @@ class MusicPlayer(object):
             await sleep(DELAY)
             try:
                 await message.delete()
-            except:
+            except Exception:
                 pass
         
 
@@ -317,7 +306,6 @@ class MusicPlayer(object):
                     admins.append(administrator.user.id)
             except Exception as e:
                 print(e)
-                pass
             ADMIN_LIST[chat]=admins
 
         return admins
