@@ -248,7 +248,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         try:
             await query.message.delete()
             await query.message.reply_to_message.delete()
-        except:
+        except Exception:
             pass
 
     await query.answer()

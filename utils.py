@@ -227,7 +227,7 @@ class MusicPlayer(object):
             await sleep(10)
 
 
-    async def stop_radio(self):
+    def stop_radio(self):
         group_call = self.group_call
         if group_call:
             playlist.clear()   
