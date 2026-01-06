@@ -91,7 +91,7 @@ async def search(client, query):
             await query.answer(
                 results=answers,
                 cache_time=0,
-                switch_pm_text=("Error: Search Timed Out!"),
+                switch_pm_text="Error: Search Timed Out!",
                 switch_pm_parameter="",
             )
 
