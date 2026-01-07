@@ -61,13 +61,13 @@ Live in production at:
 
 ### Required ENV Vars
 
-```
+```env
 API_ID, API_HASH, BOT_TOKEN, SESSION_STRING, CHAT_ID
 ```
 
 ### Optional ENV Vars
 
-```
+```env
 LOG_GROUP, AUTH_USERS, STREAM_URL, MAXIMUM_DURATION,
 REPLY_MESSAGE, ADMIN_ONLY, HEROKU_API_KEY, HEROKU_APP_NAME
 ```
