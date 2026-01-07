@@ -3,6 +3,8 @@ wheel
 psutil
 heroku3
 requests
+aiohttp
+aiofiles
 tgcrypto
 ffmpeg-python
 python-dotenv
