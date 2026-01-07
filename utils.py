@@ -262,7 +262,7 @@ class MusicPlayer(object):
         except GroupCallNotFoundError:
             try:
                 await USER.send(CreateGroupCall(
-                    peer=(await USER.resolve_peer(CHAT_ID)),
+                    peer=await USER.resolve_peer(CHAT_ID),
                     random_id=10000 + randbelow(999989999)
                     )
                     )

@@ -61,7 +61,42 @@ Live in production at:
 
 ### Required ENV Vars
 
-```env
+    start.sh
+        Use '[[' instead of '[' for conditional tests. The '[[' construct is safer and more feature-rich.
+            Reliability
+            4High
+        bashbest-practices...+
+            Open
+            Not assigned
+            L5
+            2min effort
+            2 days ago
+            Code Smell
+            Major
+        Use '[[' instead of '[' for conditional tests. The '[[' construct is safer and more feature-rich.
+            Reliability
+            4High
+        bashbest-practices...+
+            Open
+            Not assigned
+            L9
+            2min effort
+            2 days ago
+            Code Smell
+            Major
+    utils.py
+        Remove those redundant parentheses.
+            Maintainability
+            2Medium
+        confusing+
+            Open
+            Not assigned
+            L265
+            1min effort
+            2 days ago
+            Code Smell
+            Major
+
 API_ID, API_HASH, BOT_TOKEN, SESSION_STRING, CHAT_ID
 ```
 
