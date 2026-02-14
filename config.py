@@ -39,7 +39,7 @@ ydl_opts = {
 ydl = YoutubeDL(ydl_opts)
 links=[]
 finalurl=""
-STREAM=os.environ.get("STREAM_URL", "http://peridot.streamguys.com:7150/Mirchi")
+STREAM=os.environ.get("STREAM_URL", "https://peridot.streamguys.com:7150/Mirchi")
 regex = r"^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+"
 match = re.match(regex,STREAM)
 if match:

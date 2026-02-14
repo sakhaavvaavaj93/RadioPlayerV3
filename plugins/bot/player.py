@@ -45,7 +45,7 @@ async def is_admin(_, client, message: Message):
     admins = await mp.get_admins(CHAT_ID)
     if message.from_user is None and message.sender_chat:
         return True
-    if message.from_user.id in admins:
+    if message.from_user and message.from_user.id in admins:
         return True
     else:
         return False
@@ -53,207 +53,193 @@ async def is_admin(_, client, message: Message):
 ADMINS_FILTER = filters.create(is_admin)
 
 
+def stop_radio_if_playing(group_call):
+    """Helper function to stop radio if currently playing."""
+    if 1 in RADIO:
+        if group_call:
+            group_call.input_filename = ''
+            RADIO.remove(1)
+            RADIO.add(0)
+        process = FFMPEG_PROCESSES.get(CHAT_ID)
+        if process:
+            try:
+                process.send_signal(SIGINT)
+            except subprocess.TimeoutExpired:
+                process.kill()
+            except Exception as e:
+                print(e)
+            FFMPEG_PROCESSES[CHAT_ID] = ""
+
+
+async def start_playing_audio(group_call, client_workdir, file_id):
+    """Helper function to start playing audio file."""
+    if not group_call.is_connected:
+        await mp.start_call()
+    group_call.input_filename = os.path.join(
+        client_workdir,
+        DEFAULT_DOWNLOAD_DIR,
+        f"{file_id}.raw"
+    )
+    print(f"- START PLAYING: {file_id}")
+
+
+def format_playlist():
+    """Helper function to format playlist display."""
+    if not playlist:
+        return f"{emoji.NO_ENTRY} **Empty Playlist!**"
+    else:
+        return f"{emoji.PLAY_BUTTON} **Playlist**:\n" + "\n".join([
+            f"**{i}**. **{x[1]}**\n  - **Requested By:** {x[4]}"
+            for i, x in enumerate(playlist)
+        ])
+
+
+async def send_playlist_message(message, pl):
+    """Helper function to send playlist to appropriate chat."""
+    if EDIT_TITLE:
+        await mp.edit_title()
+    if message.chat.type == "private":
+        await message.reply_text(pl)
+    elif LOG_GROUP:
+        await mp.send_playlist()
+    elif not LOG_GROUP and message.chat.type == "supergroup":
+        k = await message.reply_text(pl)
+        await mp.delete(k)
+
+
+async def handle_audio_playback(message, m_audio, user):
+    """Helper function to handle audio file playback."""
+    if round(m_audio.audio.duration / 60) > DURATION_LIMIT:
+        d = await message.reply_text(
+            f"❌ __Audios Longer Than {DURATION_LIMIT} Minute(s) Aren't Allowed, "
+            f"The Provided Audio Is {round(m_audio.audio.duration/60)} Minute(s)!__"
+        )
+        await mp.delete(d)
+        await mp.delete(message)
+        return False
+    
+    data = {1: m_audio.audio.title, 2: m_audio.audio.file_id, 3: "telegram", 4: user}
+    playlist.append(data)
+    
+    if len(playlist) == 1:
+        group_call = mp.group_call
+        m_status = await message.reply_text("⚡️")
+        await mp.download_audio(playlist[0])
+        stop_radio_if_playing(group_call)
+        await start_playing_audio(group_call, message._client.workdir, playlist[0][1])
+        await m_status.delete()
+    
+    pl = format_playlist()
+    await send_playlist_message(message, pl)
+    
+    for track in playlist[:2]:
+        await mp.download_audio(track)
+    
+    return True
+
+
+def get_youtube_info(url):
+    """Helper function to extract YouTube video information."""
+    ydl_opts = {
+        "geo-bypass": True,
+        "nocheckcertificate": True
+    }
+    ydl = YoutubeDL(ydl_opts)
+    try:
+        info = ydl.extract_info(url, False)
+        return info
+    except Exception as e:
+        print(e)
+        raise
+
+
+async def handle_youtube_playback(message, url, user, msg):
+    """Helper function to handle YouTube video playback."""
+    try:
+        info = get_youtube_info(url)
+    except Exception as e:
+        k = await msg.edit(f"❌ **YouTube Download Error !** \n\n{e}")
+        print(str(e))
+        await mp.delete(message)
+        await mp.delete(k)
+        return False
+    
+    duration = round(info["duration"] / 60)
+    title = info["title"]
+    
+    if int(duration) > DURATION_LIMIT:
+        k = await message.reply_text(
+            f"❌ __Videos Longer Than {DURATION_LIMIT} Minute(s) Aren't Allowed, "
+            f"The Provided Video Is {duration} Minute(s)!__"
+        )
+        await mp.delete(k)
+        await mp.delete(message)
+        return False
+    
+    data = {1: title, 2: url, 3: "youtube", 4: user}
+    playlist.append(data)
+    
+    group_call = mp.group_call
+    client = group_call.client
+    
+    if len(playlist) == 1:
+        m_status = await msg.edit("⚡️")
+        await mp.download_audio(playlist[0])
+        stop_radio_if_playing(group_call)
+        await start_playing_audio(group_call, client.workdir, playlist[0][1])
+        await m_status.delete()
+    else:
+        await msg.delete()
+    
+    pl = format_playlist()
+    await send_playlist_message(message, pl)
+    
+    for track in playlist[:2]:
+        await mp.download_audio(track)
+    
+    return True
+
+
 @Client.on_message(filters.command(["play", f"play@{USERNAME}"]) & (filters.chat(CHAT_ID) | filters.private | filters.chat(LOG_GROUP)) | filters.audio & filters.private)
 async def yplay(_, message: Message):
     if ADMIN_ONLY == "True":
         admins = await mp.get_admins(CHAT_ID)
         if message.from_user.id not in admins:
-            m=await message.reply_sticker("CAACAgUAAxkBAAEBpyZhF4R-ZbS5HUrOxI_MSQ10hQt65QACcAMAApOsoVSPUT5eqj5H0h4E")
+            m = await message.reply_sticker("CAACAgUAAxkBAAEBpyZhF4R-ZbS5HUrOxI_MSQ10hQt65QACcAMAApOsoVSPUT5eqj5H0h4E")
             await mp.delete(m)
             await mp.delete(message)
             return
-    type=""
-    yturl=""
-    ysearch=""
-    if message.audio:
-        type="audio"
-        m_audio = message
-    elif message.reply_to_message and message.reply_to_message.audio:
-        type="audio"
-        m_audio = message.reply_to_message
+    
+    # Parse media type from message
+    media_type, yturl, ysearch, m_audio = parse_media_type(message)
+    
+    # Validate input
+    if not media_type:
+        d = await message.reply_text("❗️ __You Didn't Give Me Anything To Play, Send Me An Audio File or Reply /play To An Audio File!__")
+        await mp.delete(d)
+        await mp.delete(message)
+        return
+    
+    user = f"[{message.from_user.first_name}](tg://user?id={message.from_user.id})"
+    
+    # Handle audio playback
+    if media_type == "audio":
+        await handle_audio_playback(message, m_audio, user)
+        await mp.delete(message)
+        return
+    
+    # Handle YouTube or search query playback
+    if media_type == "youtube":
+        msg = await message.reply_text("🔍")
+        url = yturl
+    elif media_type == "query":
+        url, msg = await handle_youtube_search(ysearch, message)
+        if url is None:
+            return
     else:
-        if message.reply_to_message:
-            link=message.reply_to_message.text
-            regex = r"^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+"
-            match = re.match(regex,link)
-            if match:
-                type="youtube"
-                yturl=link
-        elif " " in message.text:
-            text = message.text.split(" ", 1)
-            query = text[1]
-            regex = r"^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+"
-            match = re.match(regex,query)
-            if match:
-                type="youtube"
-                yturl=query
-            else:
-                type="query"
-                ysearch=query
-        else:
-            d=await message.reply_text("❗️ __You Didn't Give Me Anything To Play, Send Me An Audio File or Reply /play To An Audio File!__")
-            await mp.delete(d)
-            await mp.delete(message)
-            return
-    user=f"[{message.from_user.first_name}](tg://user?id={message.from_user.id})"
-    group_call = mp.group_call
-    if type=="audio":
-        if round(m_audio.audio.duration / 60) > DURATION_LIMIT:
-            d=await message.reply_text(f"❌ __Audios Longer Than {DURATION_LIMIT} Minute(s) Aren't Allowed, The Provided Audio Is {round(m_audio.audio.duration/60)} Minute(s)!__")
-            await mp.delete(d)
-            await mp.delete(message)
-            return
-        if playlist and playlist[-1][2] == m_audio.audio.file_id:
-            d=await message.reply_text(f"➕ **Already Added To Playlist!**")
-            await mp.delete(d)
-            await mp.delete(message)
-            return
-        data={1:m_audio.audio.title, 2:m_audio.audio.file_id, 3:"telegram", 4:user}
-        playlist.append(data)
-        if len(playlist) == 1:
-            m_status = await message.reply_text("⚡️")
-            await mp.download_audio(playlist[0])
-            if 1 in RADIO:
-                if group_call:
-                    group_call.input_filename = ''
-                    RADIO.remove(1)
-                    RADIO.add(0)
-                process = FFMPEG_PROCESSES.get(CHAT_ID)
-                if process:
-                    try:
-                        process.send_signal(SIGINT)
-                    except subprocess.TimeoutExpired:
-                        process.kill()
-                    except Exception as e:
-                        print(e)
-                        pass
-                    FFMPEG_PROCESSES[CHAT_ID] = ""
-            if not group_call.is_connected:
-                await mp.start_call()
-            file=playlist[0][1]
-            group_call.input_filename = os.path.join(
-                _.workdir,
-                DEFAULT_DOWNLOAD_DIR,
-                f"{file}.raw"
-            )
-            await m_status.delete()
-            print(f"- START PLAYING: {playlist[0][1]}")
-        if not playlist:
-            pl = f"{emoji.NO_ENTRY} **Empty Playlist!**"
-        else:   
-            pl = f"{emoji.PLAY_BUTTON} **Playlist**:\n" + "\n".join([
-                f"**{i}**. **{x[1]}**\n  - **Requested By:** {x[4]}"
-                for i, x in enumerate(playlist)
-                ])
-        if EDIT_TITLE:
-            await mp.edit_title()
-        if message.chat.type == "private":
-            await message.reply_text(pl)        
-        elif LOG_GROUP:
-            await mp.send_playlist()
-        elif not LOG_GROUP and message.chat.type == "supergroup":
-            k=await message.reply_text(pl)
-            await mp.delete(k)
-        for track in playlist[:2]:
-            await mp.download_audio(track)
-
-
-    if type=="youtube" or type=="query":
-        if type=="youtube":
-            msg = await message.reply_text("🔍")
-            url=yturl
-        elif type=="query":
-            try:
-                msg = await message.reply_text("🔍")
-                ytquery=ysearch
-                results = YoutubeSearch(ytquery, max_results=1).to_dict()
-                url = f"https://youtube.com{results[0]['url_suffix']}"
-                title = results[0]["title"][:40]
-            except Exception as e:
-                await msg.edit(
-                    "**Literary Found Noting!\nTry Searching On Inline 😉!**"
-                )
-                print(str(e))
-                return
-                await mp.delete(msg)
-                await mp.delete(message)
-        else:
-            return
-        ydl_opts = {
-            "geo-bypass": True,
-            "nocheckcertificate": True
-        }
-        ydl = YoutubeDL(ydl_opts)
-        try:
-            info = ydl.extract_info(url, False)
-        except Exception as e:
-            print(e)
-            k=await msg.edit(
-                f"❌ **YouTube Download Error !** \n\n{e}"
-                )
-            print(str(e))
-            await mp.delete(message)
-            await mp.delete(k)
-            return
-        duration = round(info["duration"] / 60)
-        title= info["title"]
-        if int(duration) > DURATION_LIMIT:
-            k=await message.reply_text(f"❌ __Videos Longer Than {DURATION_LIMIT} Minute(s) Aren't Allowed, The Provided Video Is {duration} Minute(s)!__")
-            await mp.delete(k)
-            await mp.delete(message)
-            return
-        data={1:title, 2:url, 3:"youtube", 4:user}
-        playlist.append(data)
-        group_call = mp.group_call
-        client = group_call.client
-        if len(playlist) == 1:
-            m_status = await msg.edit("⚡️")
-            await mp.download_audio(playlist[0])
-            if 1 in RADIO:
-                if group_call:
-                    group_call.input_filename = ''
-                    RADIO.remove(1)
-                    RADIO.add(0)
-                process = FFMPEG_PROCESSES.get(CHAT_ID)
-                if process:
-                    try:
-                        process.send_signal(SIGINT)
-                    except subprocess.TimeoutExpired:
-                        process.kill()
-                    except Exception as e:
-                        print(e)
-                        pass
-                    FFMPEG_PROCESSES[CHAT_ID] = ""
-            if not group_call.is_connected:
-                await mp.start_call()
-            file=playlist[0][1]
-            group_call.input_filename = os.path.join(
-                client.workdir,
-                DEFAULT_DOWNLOAD_DIR,
-                f"{file}.raw"
-            )
-            await m_status.delete()
-            print(f"- START PLAYING: {playlist[0][1]}")
-        else:
-            await msg.delete()
-        if not playlist:
-            pl = f"{emoji.NO_ENTRY} **Empty Playlist!**"
-        else:
-            pl = f"{emoji.PLAY_BUTTON} **Playlist**:\n" + "\n".join([
-                f"**{i}**. **{x[1]}**\n  - **Requested By:** {x[4]}"
-                for i, x in enumerate(playlist)
-                ])
-        if EDIT_TITLE:
-            await mp.edit_title()
-        if message.chat.type == "private":
-            await message.reply_text(pl)
-        if LOG_GROUP:
-            await mp.send_playlist()
-        elif not LOG_GROUP and message.chat.type == "supergroup":
-            k=await message.reply_text(pl)
-            await mp.delete(k)
-        for track in playlist[:2]:
-            await mp.download_audio(track)
+        return
+    
+    await handle_youtube_playback(message, url, user, msg)
     await mp.delete(message)
 
 
@@ -325,63 +311,113 @@ async def set_vol(_, m: Message):
     await mp.delete(m)
 
 
+async def send_playlist_to_chat(m: Message, pl: str):
+    """Helper function to send playlist based on chat type."""
+    if m.chat.type == "private":
+        await m.reply_text(pl)
+    if LOG_GROUP:
+        await mp.send_playlist()
+    elif not LOG_GROUP and m.chat.type == "supergroup":
+        k = await m.reply_text(pl)
+        await mp.delete(k)
+
+
+async def skip_single_track(m: Message):
+    """Helper function to skip the current playing track."""
+    await mp.skip_current_playing()
+    pl = format_playlist()
+    await send_playlist_to_chat(m, pl)
+
+
+async def skip_multiple_tracks(m: Message, items: list):
+    """Helper function to skip multiple tracks from playlist."""
+    text = []
+    for i in items:
+        if 2 <= i <= (len(playlist) - 1):
+            audio = f"{playlist[i][1]}"
+            playlist.pop(i)
+            text.append(f"{emoji.WASTEBASKET} **Succesfully Skipped** - {i}. **{audio}**")
+        else:
+            text.append(f"{emoji.CROSS_MARK} **Can't Skip First Two Song** - {i}")
+    
+    k = await m.reply_text("\n".join(text))
+    await mp.delete(k)
+    
+    pl = format_playlist()
+    await send_playlist_to_chat(m, pl)
+
+
+def parse_media_type(message: Message):
+    """Helper function to parse and determine media type from message."""
+    media_type = ""
+    yturl = ""
+    ysearch = ""
+    m_audio = None
+    
+    if message.audio:
+        media_type = "audio"
+        m_audio = message
+    elif message.reply_to_message and message.reply_to_message.audio:
+        media_type = "audio"
+        m_audio = message.reply_to_message
+    else:
+        youtube_regex = r"^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+"
+        
+        if message.reply_to_message:
+            link = message.reply_to_message.text
+            if re.match(youtube_regex, link):
+                media_type = "youtube"
+                yturl = link
+        elif " " in message.text:
+            text = message.text.split(" ", 1)
+            query = text[1]
+            if re.match(youtube_regex, query):
+                media_type = "youtube"
+                yturl = query
+            else:
+                media_type = "query"
+                ysearch = query
+    
+    return media_type, yturl, ysearch, m_audio
+
+
+async def handle_youtube_search(ysearch: str, message: Message):
+    """Helper function to search YouTube and return URL."""
+    try:
+        msg = await message.reply_text("🔍")
+        results = YoutubeSearch(ysearch, max_results=1).to_dict()
+        url = f"https://youtube.com{results[0]['url_suffix']}"
+        return url, msg
+    except Exception as e:
+        msg = await message.reply_text("🔍")
+        await msg.edit("**Literary Found Noting!\nTry Searching On Inline 😉!**")
+        print(str(e))
+        await mp.delete(msg)
+        await mp.delete(message)
+        return None, None
+
+
 @Client.on_message(filters.command(["skip", f"skip@{USERNAME}"]) & ADMINS_FILTER & (filters.chat(CHAT_ID) | filters.private | filters.chat(LOG_GROUP)))
 async def skip_track(_, m: Message):
     group_call = mp.group_call
     if not group_call.is_connected:
-        k=await m.reply_text(f"{emoji.NO_ENTRY} **Nothing Is Playing To Skip!**")
+        k = await m.reply_text(f"{emoji.NO_ENTRY} **Nothing Is Playing To Skip!**")
         await mp.delete(k)
         await m.delete()
         return
+    
     if len(m.command) == 1:
-        await mp.skip_current_playing()
-        if not playlist:
-            pl = f"{emoji.NO_ENTRY} **Empty Playlist!**"
-        else:
-            pl = f"{emoji.PLAY_BUTTON} **Playlist**:\n" + "\n".join([
-            f"**{i}**. **{x[1]}**\n  - **Requested By:** {x[4]}"
-            for i, x in enumerate(playlist)
-            ])
-        if m.chat.type == "private":
-            await m.reply_text(pl)
-        if LOG_GROUP:
-            await mp.send_playlist()
-        elif not LOG_GROUP and m.chat.type == "supergroup":
-            k=await m.reply_text(pl)
-            await mp.delete(k)
+        await skip_single_track(m)
     else:
         try:
             items = list(dict.fromkeys(m.command[1:]))
             items = [int(x) for x in items if x.isdigit()]
             items.sort(reverse=True)
-            text = []
-            for i in items:
-                if 2 <= i <= (len(playlist) - 1):
-                    audio = f"{playlist[i][1]}"
-                    playlist.pop(i)
-                    text.append(f"{emoji.WASTEBASKET} **Succesfully Skipped** - {i}. **{audio}**")
-                else:
-                    text.append(f"{emoji.CROSS_MARK} **Can't Skip First Two Song** - {i}")
-            k=await m.reply_text("\n".join(text))
-            await mp.delete(k)
-            if not playlist:
-                pl = f"{emoji.NO_ENTRY} **Empty Playlist!**"
-            else:
-                pl = f"{emoji.PLAY_BUTTON} **Playlist**:\n" + "\n".join([
-                    f"**{i}**. **{x[1]}**\n  - **Requested By:** {x[4]}"
-                    for i, x in enumerate(playlist)
-                    ])
-            if m.chat.type == "private":
-                await m.reply_text(pl)
-            if LOG_GROUP:
-                await mp.send_playlist()
-            elif not LOG_GROUP and m.chat.type == "supergroup":
-                k=await m.reply_text(pl)
-                await mp.delete(k)
+            await skip_multiple_tracks(m, items)
         except (ValueError, TypeError):
-            k=await m.reply_text(f"{emoji.NO_ENTRY} **Invalid Input!**",
-                                       disable_web_page_preview=True)
+            k = await m.reply_text(f"{emoji.NO_ENTRY} **Invalid Input!**", disable_web_page_preview=True)
             await mp.delete(k)
+    
     await mp.delete(m)
 
 
@@ -573,5 +609,5 @@ async def not_chat(_, m: Message):
                 InlineKeyboardButton("🤖 MAKE YOUR OWN BOT 🤖", url="https://heroku.com/deploy?template=https://github.com/AsmSafone/RadioPlayerV3"),
             ]
          ]
-    k=await m.reply_photo(photo="https://telegra.ph/file/4e839766d45935998e9c6.jpg", caption="**Sorry, You Can't Use This Bot In This Group! 🤷‍♂️ But You Can Make Your Own Bot Like This From The [Source Code](https://github.com/AsmSafone/RadioPlayerV3) Below 😉!**", reply_markup=InlineKeyboardMarkup(buttons))
+    await m.reply_photo(photo="https://telegra.ph/file/4e839766d45935998e9c6.jpg", caption="**Sorry, You Can't Use This Bot In This Group! 🤷‍♂️ But You Can Make Your Own Bot Like This From The [Source Code](https://github.com/AsmSafone/RadioPlayerV3) Below 😉!**", reply_markup=InlineKeyboardMarkup(buttons))
     await mp.delete(m)

@@ -23,9 +23,17 @@ import subprocess
 from time import sleep
 from threading import Thread
 from signal import SIGINT
+
+# Fix for Python 3.14+ asyncio event loop issue with pyrogram sync wrapper
+try:
+    asyncio.get_event_loop()
+except RuntimeError:
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
 from pyrogram import Client, filters, idle
 from config import Config
 from utils import mp, USERNAME, FFMPEG_PROCESSES
+from tracing import init_tracing
 from pyrogram.raw.functions.bots import SetBotCommands
 from pyrogram.raw.types import BotCommand, BotCommandScopeDefault
 from user import USER
@@ -41,8 +49,14 @@ bot = Client(
     Config.API_ID,
     Config.API_HASH,
     bot_token=Config.BOT_TOKEN,
-    plugins=dict(root="plugins.bot")
+    plugins={"root": "plugins.bot"}
 )
+# initialize tracing early in startup
+try:
+    init_tracing()
+except Exception:
+    # non-fatal if tracing cannot be initialized in the current environment
+    pass
 if not os.path.isdir("./downloads"):
     os.makedirs("./downloads")
 async def main():
@@ -53,8 +67,7 @@ async def main():
         except UserAlreadyParticipant:
             pass
         except Exception as e:
-            print(e)
-            pass
+            print(f"Failed to join AsmSafone: {e}")
 
 def stop_and_restart():
     bot.stop()
@@ -176,7 +189,6 @@ async def restart(_, message: Message):
                 process.kill()
             except Exception as e:
                 print(e)
-                pass
             FFMPEG_PROCESSES[CHAT_ID] = ""
         Thread(
             target=stop_and_restart()
@@ -184,7 +196,7 @@ async def restart(_, message: Message):
     try:
         await k.edit("✅ **Restarted Successfully! \nJoin @AsmSafone For Update!**")
         await k.reply_to_message.delete()
-    except:
+    except Exception:
         pass
 
 idle()

@@ -1,0 +1,20 @@
+.git
+.env
+*.pem
+*.key
+__pycache__
+*.pyc
+.venv
+venv
+build
+dist
+Dockerfile
+*.db
+*.sqlite3
+*.log
+.idea
+.vscode
+
+# Node / other artifacts
+node_modules
+npm-debug.log

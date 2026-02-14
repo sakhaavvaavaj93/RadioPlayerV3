@@ -21,12 +21,12 @@ import psutil
 import asyncio
 from time import time
 from config import Config
-from datetime import datetime
+from datetime import datetime, timezone
 from pyrogram.types import Message
 from psutil._common import bytes2human
 from pyrogram import Client, filters, emoji
 
-START_TIME = datetime.utcnow()
+START_TIME = datetime.now(timezone.utc)
 START_TIME_ISO = START_TIME.replace(microsecond=0).isoformat()
 TIME_DURATION_UNITS = (
     ('week', 60 * 60 * 24 * 7),
@@ -42,7 +42,7 @@ self_or_contact_filter = filters.create(
 )
 
 
-async def _human_time_duration(seconds):
+def _human_time_duration(seconds):
     if seconds == 0:
         return 'inf'
     parts = []
@@ -54,7 +54,7 @@ async def _human_time_duration(seconds):
     return ', '.join(parts)
 
 
-async def generate_sysinfo(workdir):
+def generate_sysinfo(workdir):
     # uptime
     info = {
         'boot': (datetime.fromtimestamp(psutil.boot_time())
@@ -132,9 +132,9 @@ async def ping_pong(_, m: Message):
     & ~filters.via_bot
     )
 async def get_uptime(_, m: Message):
-    current_time = datetime.utcnow()
+    current_time = datetime.now(timezone.utc)
     uptime_sec = (current_time - START_TIME).total_seconds()
-    uptime = await _human_time_duration(int(uptime_sec))
+    uptime = _human_time_duration(int(uptime_sec))
     await m.reply_text(
         f"{emoji.ROBOT} **Radio Player V3.0**\n"
         f"- **Uptime:** `{uptime}`\n"
@@ -153,6 +153,6 @@ async def get_uptime(_, m: Message):
 async def get_sysinfo(client, m: Message):
     response = "**System Information**:\n"
     m_reply = await m.reply_text(f"{response}`...`")
-    response += await generate_sysinfo(client.workdir)
+    response += generate_sysinfo(client.workdir)
     await m_reply.edit_text(response)
 
