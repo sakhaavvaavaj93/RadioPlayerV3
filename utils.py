@@ -63,13 +63,16 @@ ydl_opts = {
     "geo-bypass": True,
     "nocheckcertificate": True,
     "outtmpl": "downloads/%(id)s.%(ext)s",
-    # Enforces desktop web client headers to bypass structural drops
+    
+    # CRITICAL FIX: Forces yt-dlp to use curl-cffi to completely mask TLS fingerprints
+    "http_backend": "curl_cffi",
     "extractor_args": {
         "youtube": {
             "player_client": ["web", "default"],
         }
     },
 }
+ydl = YoutubeDL(ydl_opts)
 ydl = YoutubeDL(ydl_opts)
 class MusicPlayer(object):
     def __init__(self):
