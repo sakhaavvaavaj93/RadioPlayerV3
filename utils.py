@@ -63,10 +63,14 @@ ydl_opts = {
     "geo-bypass": True,
     "nocheckcertificate": True,
     "outtmpl": "downloads/%(id)s.%(ext)s",
+    # CRITICAL FIX: Impersonate a standard web browser client to prevent TLS handshake drops
+    "extractor_args": {
+        "youtube": {
+            "player_client": ["web", "default"],
+        }
+    },
 }
 ydl = YoutubeDL(ydl_opts)
-
-
 class MusicPlayer(object):
     def __init__(self):
         # Modern PyTgCalls architecture takes the USER instance directly
