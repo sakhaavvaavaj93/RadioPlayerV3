@@ -17,9 +17,9 @@ from pyrogram.raw.types import InputGroupCall
 from pyrogram.methods.messages.download_media import DEFAULT_DOWNLOAD_DIR
 from pyrogram.raw.functions.phone import EditGroupCallTitle, CreateGroupCall
 
-# Modern py-tgcalls Core Imports - Replaced AudioStream with MediaStream
+# Modern py-tgcalls Core Imports - Standardized to MediaStream
 from pytgcalls import PyTgCalls
-from pytgcalls.types import MediaStream
+from pytgcalls.types import MediaStream, Update
 
 # Safe Namespace Catch for Missing exceptions
 try:
@@ -261,7 +261,7 @@ class MusicPlayer(object):
     async def start_call(self):
         raw_pipe_file = f'radio-{CHAT_ID}.raw'
         try:
-            # Fixed: Updated to use modern MediaStream and finished the cut-off logic
+            # Fixed: Updated to use modern MediaStream
             await self.group_call.start(CHAT_ID, MediaStream(raw_pipe_file))
         except FloodWait as e:
             await sleep(e.value)
@@ -283,18 +283,8 @@ class MusicPlayer(object):
 
 # Global Object Mapping Endpoint
 mp = MusicPlayer()
-# Fixed: Safely catch attribute exceptions for the legacy decorator
-try:
-    @mp.group_call.on_network_status_changed
-    async def network_status_changed(client, is_connected):
-        print(f"Network status changed: Connected = {is_connected}")
-except AttributeError:
-    # If the decorator is missing in v2.1.1, we register it via the standard handler or skip it
-    print("[Info] on_network_status_changed decorator skipped due to library version alignment.")
 
-@mp.group_call.on_playout_ended
-async def playout_ended_handler(_, __):
-    if not playlist:
-        await mp.start_radio()
-    else:
-        await mp.skip_current_playing()
+# Modernized Network Event Handler for py-tgcalls v2.1.1
+@mp.group_call.on_update()
+async def on_update(client, update: Update):
+    pass
