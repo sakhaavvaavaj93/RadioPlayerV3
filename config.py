@@ -20,6 +20,17 @@ load_dotenv()
 # Fixed yt-dlp API options with advanced bypass parameters
 ydl_opts = {
     "geo_bypass": True,          
+    "nocheckcertificate": True,  
+    "quiet": True,               
+    "cookiefile": "cookies.txt", # Added: Authenticates requests as a real user
+    "extractor_args": {
+        "youtube": {
+            "player_client": ["android", "web"]  
+        }
+    }
+}
+ydl_opts = {
+    "geo_bypass": True,          
     "nocheckcertificate": True,  # Bypasses strict handshake exceptions
     "quiet": True,               
     "extractor_args": {
