@@ -73,7 +73,7 @@ ydl_opts = {
     },
 }
 ydl = YoutubeDL(ydl_opts)
-ydl = YoutubeDL(ydl_opts)
+
 class MusicPlayer(object):
     def __init__(self):
         # Modern PyTgCalls architecture takes the USER instance directly
