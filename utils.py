@@ -63,7 +63,7 @@ ydl_opts = {
     "geo-bypass": True,
     "nocheckcertificate": True,
     "outtmpl": "downloads/%(id)s.%(ext)s",
-    # CRITICAL FIX: Impersonate a standard web browser client to prevent TLS handshake drops
+    # Enforces desktop web client headers to bypass structural drops
     "extractor_args": {
         "youtube": {
             "player_client": ["web", "default"],
