@@ -4,10 +4,19 @@ import sys
 import heroku3
 from dotenv import load_dotenv
 from yt_dlp import YoutubeDL
-
+ydl_opts = {
+    "geo_bypass": True,          
+    "nocheckcertificate": True,  
+    "quiet": True,               
+    "proxy": os.environ.get("PROXY_URL", None), # Added: Uses a proxy if added to Space Settings
+    "extractor_args": {
+        "youtube": {
+            "player_client": ["android", "web"]  
+        }
+    }
+}
 # Load local environment flags if present
 load_dotenv()
-
 # Fixed yt-dlp API options with advanced bypass parameters
 ydl_opts = {
     "geo_bypass": True,          
@@ -19,10 +28,8 @@ ydl_opts = {
         }
     }
 }
-
 # Fetch stream URL variable or use fallback address
 STREAM = os.environ.get("STREAM_URL", "http://streamguys.com")
-
 def get_live_stream_url(url_source):
     """
     Safely resolves stream URLs synchronously during class configuration loading.
@@ -46,8 +53,6 @@ def get_live_stream_url(url_source):
 
 # Dynamic variable resolution mapping
 finalurl = get_live_stream_url(STREAM)
-
-
 class Config:
     # Mandatory Variables
     ADMIN = os.environ.get("AUTH_USERS", "")
@@ -71,14 +76,11 @@ class Config:
     DELAY = int(os.environ.get("DELAY", 10))
     EDIT_TITLE = os.environ.get("EDIT_TITLE", "True")
     if EDIT_TITLE == "False":
-        EDIT_TITLE = None
-        
+        EDIT_TITLE = None   
     RADIO_TITLE = os.environ.get("RADIO_TITLE", "RADIO 24/7 | LIVE")
     if RADIO_TITLE == "False":
-        RADIO_TITLE = None
-        
+        RADIO_TITLE = None     
     DURATION_LIMIT = int(os.environ.get("MAXIMUM_DURATION", 15))
-
     # Heroku API integration block (Safe fallback logic)
     API_KEY = os.environ.get("HEROKU_API_KEY", None)
     APP_NAME = os.environ.get("HEROKU_APP_NAME", None)
@@ -90,7 +92,6 @@ class Config:
             HEROKU_APP = heroku3.from_key(API_KEY).apps()[APP_NAME]
         except Exception:
             HEROKU_APP = None
-
     # Temp Database Parameters
     msg = {}
     playlist = []
