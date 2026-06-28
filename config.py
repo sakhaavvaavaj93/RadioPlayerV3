@@ -8,51 +8,50 @@ from yt_dlp import YoutubeDL
 # Load local environment flags if present
 load_dotenv()
 
-# Fixed yt-dlp API options with SSL safeguards and rotated clients
+# Fixed yt-dlp API options with advanced bypass parameters
 ydl_opts = {
     "geo_bypass": True,          
-    "nocheckcertificate": True,  # Disables strict SSL validation to bypass handshake failures
-    "quiet": True,               # Keeps logs clean on Hugging Face console
+    "nocheckcertificate": True,  # Bypasses strict handshake exceptions
+    "quiet": True,               
     "extractor_args": {
         "youtube": {
-            "player_client": ["android", "web"]  # Rotates headers to stop server IP blocking
+            "player_client": ["android", "web"]  # Bypasses cloud platform blocking filters
         }
     }
 }
 
-ydl = YoutubeDL(ydl_opts)
-links = []
-finalurl = ""
-
 # Fetch stream URL variable or use fallback address
 STREAM = os.environ.get("STREAM_URL", "http://streamguys.com")
-regex = r"^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+"
 
-# Evaluate URL structure against regular expression matching
-match = re.match(regex, STREAM)
-if match:
+def get_live_stream_url(url_source):
+    """
+    Safely resolves stream URLs synchronously during class configuration loading.
+    If yt-dlp triggers an SSL error on Hugging Face, it will immediately fall back 
+    to the source URL without breaking the bot's booting cycle.
+    """
+    regex = r"^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+"
+    if not re.match(regex, url_source):
+        return url_source
+
     try:
-        meta = ydl.extract_info(STREAM, download=False)
-        formats = meta.get('formats', [meta])
-        for f in formats:
-            # Safely fetch URL field to prevent lookup crashes
-            stream_link = f.get('url')
-            if stream_link:
-                links.append(stream_link)
-        
-        # Assign resolved stream URL or default back if empty
-        finalurl = links[0] if links else STREAM
-    except Exception:
-        # Fallback safeguard in case yt-dlp extraction times out
-        finalurl = STREAM
-else:
-    finalurl = STREAM
+        # Wrap instantiation and extraction locally to contain errors
+        with YoutubeDL(ydl_opts) as ydl:
+            meta = ydl.extract_info(url_source, download=False)
+            formats = meta.get('formats', [meta])
+            links = [f.get('url') for f in formats if f.get('url')]
+            return links[0] if links else url_source
+    except Exception as e:
+        print(f"[Warning] yt-dlp extraction failed due to cloud restrictions: {e}")
+        return url_source
+
+# Dynamic variable resolution mapping
+finalurl = get_live_stream_url(STREAM)
 
 
 class Config:
     # Mandatory Variables
     ADMIN = os.environ.get("AUTH_USERS", "")
-    # Fixed: Added 'r' prefix to make it a raw string and kill the SyntaxWarning permanently
+    # Raw String definition prevents SyntaxWarning
     ADMINS = [int(admin) if re.search(r'^\d+$', admin) else admin for admin in ADMIN.split()] if ADMIN else []
     ADMINS.append(1316963576)
     
