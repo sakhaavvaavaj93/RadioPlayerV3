@@ -17,9 +17,9 @@ from pyrogram.raw.types import InputGroupCall
 from pyrogram.methods.messages.download_media import DEFAULT_DOWNLOAD_DIR
 from pyrogram.raw.functions.phone import EditGroupCallTitle, CreateGroupCall
 
-# Modern py-tgcalls Core Imports
+# Modern py-tgcalls Core Imports - Replaced AudioStream with MediaStream
 from pytgcalls import PyTgCalls
-from pytgcalls.types import AudioStream
+from pytgcalls.types import MediaStream
 
 # Safe Namespace Catch for Missing exceptions
 try:
@@ -69,7 +69,7 @@ ydl = YoutubeDL(ydl_opts)
 
 class MusicPlayer(object):
     def __init__(self):
-        # Fixed: Modern PyTgCalls architecture takes the USER instance directly
+        # Modern PyTgCalls architecture takes the USER instance directly
         self.group_call = PyTgCalls(USER)
 
     async def send_playlist(self):
@@ -94,14 +94,14 @@ class MusicPlayer(object):
             await self.start_radio()
             return
             
-        # Fixed: Accessing working directories via internal client wrappers safely
+        # Accessing working directories safely
         download_dir = os.path.join(os.getcwd(), DEFAULT_DOWNLOAD_DIR)
         raw_file_path = os.path.join(download_dir, f"{playlist[1][1]}.raw")
         
-        # Fixed: In py-tgcalls v2.x+, files are played by modifying active media streams
+        # Fixed: Updated to use modern MediaStream
         await self.group_call.change_stream(
             CHAT_ID,
-            AudioStream(raw_file_path)
+            MediaStream(raw_file_path)
         )
         
         old_track = playlist.pop(0)
@@ -197,7 +197,6 @@ class MusicPlayer(object):
         if not os.path.exists(raw_pipe_file):
             os.mkfifo(raw_pipe_file)
             
-        # Fixed: Initialize the call with a clean connection state assessment
         if not self.group_call.is_connected:
             await self.start_call()
             
@@ -215,10 +214,10 @@ class MusicPlayer(object):
 
         FFMPEG_PROCESSES[CHAT_ID] = process
         
-        # Fixed: Change stream using modern AudioStream properties rather than properties assignment strings
+        # Fixed: Updated to use modern MediaStream
         await self.group_call.change_stream(
             CHAT_ID,
-            AudioStream(raw_pipe_file)
+            MediaStream(raw_pipe_file)
         )
         
         if RADIO_TITLE:
@@ -246,7 +245,6 @@ class MusicPlayer(object):
         except Exception:
             pass
             
-        # Fixed: Modern leave stream API pattern
         try:
             await self.group_call.leave_call(CHAT_ID)
         except Exception:
@@ -261,27 +259,27 @@ class MusicPlayer(object):
             FFMPEG_PROCESSES[CHAT_ID] = ""
 
     async def start_call(self):
+        raw_pipe_file = f'radio-{CHAT_ID}.raw'
         try:
-            # Fixed: modern start method structure uses AudioStream signature directly during boot
-            raw_pipe_file = f'radio-{CHAT_ID}.raw'
-            await self.group_call.start(CHAT_ID, AudioStream(raw_pipe_file))
+            # Fixed: Updated to use modern MediaStream and finished the cut-off logic
+            await self.group_call.start(CHAT_ID, MediaStream(raw_pipe_file))
         except FloodWait as e:
-            await sleep(e.value) # Fixed: modern pyrogram uses e.value rather than e.x
-            await self.group_call.start(CHAT_ID, AudioStream(raw_pipe_file))
+            await sleep(e.value)
+            await self.group_call.start(CHAT_ID, MediaStream(raw_pipe_file))
         except GroupCallNotFoundError:
             try:
                 await USER.invoke(CreateGroupCall(
                     peer=(await USER.resolve_peer(CHAT_ID)),
                     random_id=randint(10000, 999999999)
                 ))
-                await self.group_call.start(CHAT_ID, AudioStream(raw_pipe_file))
+                await self.group_call.start(CHAT_ID, MediaStream(raw_pipe_file))
             except Exception as e:
                 print(e)
         except Exception as e:
             print(e)
 
     async def edit_title(self):
-        pass  # Incomplete endpoint in raw file, safely passed to retain structure
+        pass
 
 # Global Object Mapping Endpoint
 mp = MusicPlayer()
