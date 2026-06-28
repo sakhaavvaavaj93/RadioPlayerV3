@@ -1,24 +1,32 @@
-# Debian Based Docker
 FROM debian:latest
 
-RUN apt update && apt upgrade -y
+# Set non-interactive to avoid hanging on prompts
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Installing Packages
-RUN apt install git curl python3-pip ffmpeg -y
+# Combine all updates/installs into one layer
+RUN apt update && apt install -y --no-install-recommends \
+    git \
+    curl \
+    python3 \
+    python3-pip \
+    python3-dev \
+    build-essential \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 
-# Installing Pip Packages
-RUN pip3 install --upgrade pip
+# Force-upgrade pip system-wide without touching Debian's apt-managed record file
+RUN pip3 install --upgrade pip --ignore-installed --break-system-packages
 
-# Crucial: Install/Update yt-dlp explicitly during build
-# Adding --break-system-packages in case you are on a modern Debian release
+# Combine regular pip installations to keep layers small
 RUN pip3 install -U yt-dlp certifi --break-system-packages
 
-# Copying Requirements
+# Copy your local requirements file
 COPY requirements.txt /requirements.txt
 
-# Installing Requirements
-RUN pip3 install -U -r /requirements.txt --break-system-packages
+# ADDED --ignore-installed HERE to bypass the system 'wheel' package block
+RUN pip3 install -U -r /requirements.txt --ignore-installed --break-system-packages
 
+# Set up your working directory
 RUN mkdir /RadioPlayerV3
 WORKDIR /RadioPlayerV3
 COPY start.sh /start.sh
